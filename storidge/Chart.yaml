@@ -1,0 +1,15 @@
+apiVersion: v2
+appVersion: 1.16.0
+name: storidge
+description: Automatic storage operations for Kubernetes
+version: 1.0.0
+home: https://storidge.com
+icon: https://storidge.com/wp-content/uploads/2019/04/logo_storidge_automated_2_370x100.png
+sources:
+- https://github.com/storidge
+
+keywords:
+- storage
+- block-storage
+- volume
+

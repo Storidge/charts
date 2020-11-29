@@ -1,0 +1,56 @@
+---
+{{- if .Values.rbac.enable -}}
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "storidge.name" . }}
+rules:
+  - apiGroups: [""]
+    resources: ["pods", "services", "namespaces", "nodes", volumeattachments"]
+    verbs: ["create", "get", "update", "list", "delete", "watch", "patch"]
+  - apiGroups: ["apps"]
+    resources: ["deployment"]
+    verbs: ["create", "get", "update", "list", "delete", "watch", "patch"]
+  - apiGroups: ["rbac.authorization.k8s.io"]
+    resources: ["clusterroles", "clusterrolebindings"]
+    verbs: ["create", "get", "list", "watch"]
+{{- end }}
+
+---
+{{- if .Values.rbac.enable -}}
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: {{ template "storidge.name" . }}
+subjects:
+  - kind: ServiceAccount
+    name: {{ .Values.serviceAccount.name }}
+    namespace: {{ .Values.namespace }}
+roleRef:
+  kind: ClusterRole
+  name: storidge
+  apiGroup: rbac.authorization.k8s.io
+{{- end }}
+
+---
+{{- if .Values.serviceAccount.create -}}
+kind: ServiceAccount
+apiVersion: v1
+metadata:
+  name: {{ .Values.serviceAccount.name }}
+  namespace: {{ .Values.namespace }}
+secrets:
+  - name: {{ .Values.secrets.name }}
+{{- end }}
+
+---
+{{- if .Values.serviceAccount.create -}}
+kind: Secret
+apiVersion: v1
+metadata:
+  name: {{ .Values.secrets.name }}
+  namespace: {{ .Values.namespace }}
+  annotations:
+    kubernetes.io/service-account.name: storidge-sa
+type: kubernetes.io/service-account-token
+{{- end }}
