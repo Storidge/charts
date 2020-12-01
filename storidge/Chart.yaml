@@ -2,7 +2,7 @@ apiVersion: v2
 appVersion: 1.0.2
 kubeVersion: ">=v1.14.0-r0"
 name: storidge
-description: Automatic storage operations for Kubernetes
+description: Cloud native storage for Kubernetes
 version: 1.0.0
 home: https://storidge.com
 icon: https://storidge.com/wp-content/uploads/2019/04/logo_storidge_automated_2_370x100.png

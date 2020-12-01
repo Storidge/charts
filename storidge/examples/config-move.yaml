@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: DaemonSet
+metadata:
+  name: config-move
+spec:
+  selector:
+    matchLabels:
+      app: config-move
+  template:
+    metadata:
+      labels:
+        app: config-move
+    spec:
+      containers:
+        - name: move-config
+          image: storidge/config
+          volumeMounts:
+            - name: secret-volume
+              mountPath: /secret
+            - name: storidge
+              mountPath: /storidge
+#          lifecycle:
+#            postStart:
+#              exec:
+#                command: ["/bin/bash", "-c", "./copy.sh"]
+      volumes:
+        - name: secret-volume
+          secret:
+            secretName: storidge-config
+        - name: storidge
+          hostPath:
+            path: /etc/storidge/config
+            type: Directory
