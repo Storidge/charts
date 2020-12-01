@@ -1,1 +1,7 @@
-Service account for Storidge created.
+Service account for Storidge is created.
+
+Please wait a few minutes for other Storidge components such as CSI deployments to be initialized. 
+
+Visit our documentation at https://docs.storidge.com/
+
+
