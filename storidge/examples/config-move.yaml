@@ -19,10 +19,6 @@ spec:
               mountPath: /secret
             - name: storidge
               mountPath: /storidge
-#          lifecycle:
-#            postStart:
-#              exec:
-#                command: ["/bin/bash", "-c", "./copy.sh"]
       volumes:
         - name: secret-volume
           secret:
