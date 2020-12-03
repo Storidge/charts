@@ -12,5 +12,7 @@ RUN apt update && \
 # Add run script
 COPY run.sh /usr/bin/run.sh
 
-ENTRYPOINT ["sh", "/usr/bin/run.sh"]
+# Add storidge-config template
+COPY storidge-config /storidge/storidge-config
 
+ENTRYPOINT ["sh", "/usr/bin/run.sh"]
