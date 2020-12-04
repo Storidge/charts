@@ -2,6 +2,8 @@ Service account for Storidge is created.
 
 Please wait a few minutes for other Storidge components such as CSI deployments to be initialized. 
 
+Run `curl .../install-sa.sh` to install the Storidge service account and link Kubernetes to Storidge nodes. 
+
 Visit our documentation at https://docs.storidge.com/
 
 
