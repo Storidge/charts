@@ -26,5 +26,5 @@ spec:
             secretName: storidge-config
         - name: storidge
           hostPath:
-            path: /etc/storidge/config
+            path: /etc/storidge/certs
             type: Directory
