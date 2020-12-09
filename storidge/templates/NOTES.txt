@@ -1,6 +1,6 @@
 Service account for Storidge is created.
 
-To complete installation, run `./connect-storidge` to connect Storidge cluster to Kubernetes. 
+To complete installation, run `cd storidge; ./connect-storidge` to connect a Storidge cluster to Kubernetes. 
 
 Visit our documentation at https://docs.storidge.com/
 

@@ -1,0 +1,205 @@
+#!/bin/bash
+#  vim:ts=8:sw=4:expandtab:softtabstop=4
+#
+#  Copyright (C) 2020 by Storidge Inc.
+#  All rights reserved
+#
+
+# A curl-pipe-bash installation script for cio.
+#
+# SYNOPSIS
+#   curl -fsSL ftp://104.131.153.182/pub/ce/cio-ce | sudo bash -s -- -f
+#   curl -fsSL https://104.131.153.182/pub/ce/cio-ce | sudo bash -s
+
+
+CIO_NAME=connect-storidge
+CIO_SERVER=ftp://104.131.153.182
+CIO_SERVER_FTP=ftp://104.131.153.182
+try_proxy="yes"
+
+CIO_DIR=/cio
+BASEDIR=/etc/storidge
+CONFIGDIR=$BASEDIR/config
+CERTSDIR=$BASEDIR/certs
+PROFILEDIR=$BASEDIR/profiles
+MONGODBDIR=$BASEDIR/mongodb
+VARLIBDIR=/var/lib/storidge
+KO_DIR=/lib/modules/$(uname -r)/kernel/drivers/storidge
+BINDIR=/usr/bin
+
+FD=1
+
+export LC_ALL=en_US.UTF-8
+export LC_COLLATE=C
+export LC_CTYPE=en_US.UTF-8
+export LANG=en_US.UTF-8
+export LANGUAGE=en_US.UTF-8
+
+# Use extended syntax;  Needs to be near the top of script file for correct syntax analysis.
+shopt -s extglob
+
+
+get_class() {
+    case "`uname -r`" in
+    # Standard CentOS 7.6/7.7/7.8/7.9 releases
+    #3.10.0-1160.el7.x86_64)    # While debugging, Syntastic does not like extglob.
+    3.10.0-@(957|1062|1127|1160).?(+([0-9]).+([0-9]).)el7.x86_64)
+        class=c7xl3
+        MONGO_ORG=3.6
+        MONGO_ORG_SPECIFIC=3.6.20       # Last known working release
+        MONGOCDRV=1.14.0
+        YAMLVER=0.1.6
+        ;;
+
+    # Standard CentOS 7.7 releases on aarch64
+    #4.18.0-80.7.2.el7.aarch64) # While debugging, Syntastic does not like extglob.
+    4.18.0-80.?(+([0-9]).+([0-9]).)el7.aarch64)
+        class=c7xl4
+        MONGO_ORG=3.6
+        MONGO_ORG_SPECIFIC=3.6.20       # Last known working release
+        MONGOCDRV=1.14.0
+        YAMLVER=0.1.6
+        ;;
+
+    # Standard CentOS 8.[12] releases (but not 8.0)
+    #4.18.0-193.el8.x86_64)             # While debugging, Syntastic does not like extglob.
+    4.18.0-@(147|193).?(+([0-9]).+([0-9]).)el8.@(x86_64|aarch64))
+        class=c8x
+        MONGO_ORG=4.4
+        MONGO_ORG_SPECIFIC=4.4.1
+        MONGOCDRV=1.17.0
+        ;;
+
+    *)
+        (>&2 echo "ERROR: Currently no support for kernel \"$kernel\"; Consult support@storidge.com" )
+        exit 1
+        ;;
+    esac
+}
+
+. /etc/os-release
+
+# Check that we support the distribution
+#
+k="`uname -r`"
+case "$ID" in
+    rhel | centos)
+        if [ "${VERSION_ID:0:1}" -lt 7 ]; then
+            (>&2 echo "ERROR: Cannot support $VERSION_ID of \"$PRETTY_NAME\"; Consult support@storidge.com" )
+            exit 1;
+        fi
+        if [ "${VERSION_ID:0:1}" -gt 8 ]; then
+            (>&2 echo "ERROR: Currently no support for $VERSION_ID of \"$PRETTY_NAME\"; Consult support@storidge.com" )
+            exit 1;
+        fi
+
+        # Determine which style of CentOS kernel.
+        #
+        get_class
+        ;;
+
+    ubuntu)
+        if [ "${VERSION_ID:0:2}" -lt 16 ]; then
+            (>&2 echo "ERROR: Cannot support \"$VERSION\"; Consult support@storidge.com" )
+            exit 1;
+        fi
+        case "$VERSION_ID" in
+        '16.04') class=u16 ;;
+        '18.04') class=u18 ;;
+        '20.04') class=u20 ;;
+        *)  (>&2 echo "ERROR: Currently no support for \"$VERSION\"; Consult support@storidge.com" )
+            exit 1
+            ;;
+        esac
+        ;;
+    *)
+        (>&2 echo "ERROR: Cannot support $PRETTY_NAME; Consult support@storidge.com" )
+        exit 1;
+esac
+
+mkdir -p $VARLIBDIR
+chmod 755 $VARLIBDIR
+
+echo "Distributing storidge-config for: $class  ($k)" | tee $VARLIBDIR/connect-storidge
+echo "Started at `date`" >>$VARLIBDIR/connect-storidge
+echo  >>$VARLIBDIR/connect-storidge
+
+# Create a "storidge-config" file with various settings and certificates.
+#
+CLUSTERNAME=`kubectl config view --minify -o jsonpath='{.clusters[].name}'`
+SERVER=`kubectl config view --minify -o jsonpath='{.clusters[].cluster.server}'`
+CADATA=`kubectl config view --raw --minify --flatten \
+    -o jsonpath='{.clusters[].cluster.certificate-authority-data}'`
+kubectl config --kubeconfig=storidge-config set-cluster $CLUSTERNAME \
+    --server=$SERVER >>$VARLIBDIR/connect-storidge
+kubectl config --kubeconfig=storidge-config set clusters.kubernetes.certificate-authority-data \
+    $CADATA >>$VARLIBDIR/connect-storidge
+kubectl config --kubeconfig=storidge-config set-context storidge-context \
+    --cluster=$CLUSTERNAME --user=storidge >>$VARLIBDIR/connect-storidge
+kubectl config --kubeconfig=storidge-config use-context storidge-context --cluster=$CLUSTERNAME \
+    --user=storidge >>$VARLIBDIR/connect-storidge
+TOKEN=`kubectl -n kube-system get secret storidge-secret -o jsonpath='{.data.token}' | \
+    base64 --decode`
+kubectl config --kubeconfig=storidge-config set-credentials storidge --token=$TOKEN \
+    >>$VARLIBDIR/connect-storidge
+
+# Load the file "storidge-config" into the secret "storidge-config"
+#
+kubectl delete secret storidge-config &>>$VARLIBDIR/connect-storidge
+kubectl create secret generic storidge-config --from-file=storidge-config \
+    >>$VARLIBDIR/connect-storidge
+
+# Start a Daemonset using the container storidge/config
+#
+kubectl create -f examples/config.yaml >>$VARLIBDIR/connect-storidge
+
+# Wait until storidge/config has run on all worker nodes.
+#
+sleep 1
+pid=$$
+i=0
+while        # A bash equivalent to a `do {} while ();` loop.
+    z="`kubectl get po -o wide --no-headers -n default 2>>$VARLIBDIR/connect-storidge | \
+        awk '$1 ~ /^config-move.*$/ && $2 !=\"1/1" && $3!=\"Running\"{ print $1,$2,$3 }'`"
+    [ ! -z "$z" -a $i -le 100 ]; do   # While condition tested here.
+    sleep 1
+    ((i=$i+1))
+done
+echo "create in $i loops" >>$VARLIBDIR/connect-storidge
+echo "Copied storage-config to workers" | tee -a $VARLIBDIR/connect-storidge
+sleep 8
+
+# Remove all storidge/config containers.  Wait until all containers are currently Terminating,
+# but don't wait for the final termination as this can take as much as 50 s or more.
+#
+kubectl delete -f examples/config.yaml >>$VARLIBDIR/connect-storidge
+while        # A bash equivalent to a `do {} while ();` loop.
+    z="`kubectl get po -o wide --no-headers -n default 2>>$VARLIBDIR/connect-storidge | \
+        awk '$1 ~ /^config-move.*$/ && $3!=\"Terminating\"{ print $1,$2,$3 }'`"
+    [ ! -z "$z" -a $i -le 100 ]; do   # While condition tested here.
+    sleep 1
+    ((i=$i+1))
+done
+echo "delete in $i loops" >>$VARLIBDIR/connect-storidge
+
+# Now install the appropriate cio-csi driver.
+# For k8s version 1.16.0 and above use csi-cio version of 1.6.0, else use 1.1.0 .
+#
+LOWEST=`kubectl get no --no-headers | \
+    awk '$3!~/master/{ printf "1.16\n%s\n",substr($NF,2); exit 0 }' | sort -V | head -n1`
+[ "$LOWEST" = '1.16' ] && r='v1.6.0' || r='v1.1.0'
+echo "Installing Storidge CSI $r driver" | tee -a $VARLIBDIR/connect-storidge
+curl -o $VARLIBDIR/csi-cio-$r.yaml \
+    https://raw.githubusercontent.com/Storidge/csi-cio/master/deploy/releases/csi-cio-$r.yaml \
+    2>>$VARLIBDIR/connect-storidge
+kubectl create -f $VARLIBDIR/csi-cio-$r.yaml >>$VARLIBDIR/connect-storidge
+#!!kubectl create -f \
+#!!    https://raw.githubusercontent.com/Storidge/csi-cio/master/deploy/releases/csi-cio-$r.yaml \
+#!!    >>$VARLIBDIR/connect-storidge
+
+# Done.
+#
+echo  >>$VARLIBDIR/connect-storidge
+echo "Finished at `date`" >>$VARLIBDIR/connect-storidge
+
+exit 0
