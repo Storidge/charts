@@ -4,7 +4,7 @@ rbac:
   enable: true
 
 secrets:
-  name: "storidge-secret"
+  name: "storidge-config"
 
 serviceAccount:
   create: true

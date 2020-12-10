@@ -138,7 +138,7 @@ kubectl config --kubeconfig=storidge-config set-context storidge-context \
     --cluster=$CLUSTERNAME --user=storidge >>$VARLIBDIR/connect-storidge
 kubectl config --kubeconfig=storidge-config use-context storidge-context --cluster=$CLUSTERNAME \
     --user=storidge >>$VARLIBDIR/connect-storidge
-TOKEN=`kubectl -n kube-system get secret storidge-secret -o jsonpath='{.data.token}' | \
+TOKEN=`kubectl -n kube-system get secret storidge-config -o jsonpath='{.data.token}' | \
     base64 --decode`
 kubectl config --kubeconfig=storidge-config set-credentials storidge --token=$TOKEN \
     >>$VARLIBDIR/connect-storidge
